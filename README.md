@@ -39,10 +39,12 @@ https://console.developers.google.com/
 
 Based on https://developers.google.com/drive/api/v3/quickstart/python
 
+```
 python3 -m venv drive_io
 source ./drive_io/bin/activate
 pip install --upgrade pip
 pip install --upgrade requirements.txt
+```
 
 -------------------------------------------------------------------------------
 
