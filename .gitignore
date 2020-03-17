@@ -1,0 +1,13 @@
+# Python
+__pychache__
+*.pyc
+
+# security credentials for Drive access
+credentials.json
+token.pickle
+
+# virtual python environment
+drive_io
+
+# ide
+.idea
