@@ -6,8 +6,5 @@ __pychache__
 credentials.json
 token.pickle
 
-# virtual python environment
-drive_io
-
 # ide
 .idea

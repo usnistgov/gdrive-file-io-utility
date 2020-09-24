@@ -13,6 +13,9 @@ import time
 import logging
 from typing import List
 
+import socket
+socket.setdefaulttimeout(120)  # set timeout to 5 minutes (300s)
+
 from google_drive_file import GoogleDriveFile
 
 from googleapiclient.discovery import build
@@ -129,10 +132,6 @@ class DriveIO(object):
 
         return file_list
 
-    def query(self) -> List[GoogleDriveFile]:
-        file_list = self.__query_worker('')
-        return file_list
-
     def query_by_filename(self, file_name: str) -> List[GoogleDriveFile]:
         query = "name = '{}' and trashed = false".format(file_name)
         file_list = self.__query_worker(query)
@@ -178,6 +177,8 @@ class DriveIO(object):
         _, file_name = os.path.split(file_path)
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
+
+        # TODO ensure file_path is a file, and not a folder
 
         for retry_count in range(self.max_retry_count):
             try:
@@ -237,8 +238,31 @@ class DriveIO(object):
                         logging.error("Failed to share uploaded file '{}' with '{}'.".format(file_id, share_email))
                         raise
 
+    def remove_all_sharing_permissions(self, file_id: str) -> None:
+        permissions = self.service.permissions().list(fileId=file_id).execute()
+        permissions = permissions['permissions']
+
+        for permission in permissions:
+            if permission['role'] != 'owner':
+                for retry_count in range(self.max_retry_count):
+                    sleep_time = random.random() * 2 ** retry_count
+                    time.sleep(sleep_time)
+
+                    try:
+                        self.service.permissions().delete(fileId=file_id, permissionId=permission['id']).execute()
+                        logging.info("Successfully removed share permission '{}' from file {}.".format(permission, file_id))
+                        break  # break retry loop
+                    except:
+                        if retry_count <= 4:
+                            logging.info('Failed to modify permissions on try, performing random exponential backoff.')
+                        else:
+                            logging.error("Failed to remove share permission '{}' from file '{}'.".format(permission, file_id))
+                            raise
+
     def upload_and_share(self, file_path: str, share_email: str) -> None:
         file_id = self.upload(file_path)
+        # unshare to remove all permissions except for owner, to ensure that if the file is deleted on the receivers end, that they get a new copy of it.
+        self.remove_all_sharing_permissions(file_id)
         self.share(file_id, share_email)
 
     def submission_download(self, email: str, output_dirpath: str, metadata_filepath: str, sts: bool) -> GoogleDriveFile:
