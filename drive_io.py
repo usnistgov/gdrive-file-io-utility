@@ -132,18 +132,27 @@ class DriveIO(object):
 
         return file_list
 
-    def query_by_filename(self, file_name: str) -> List[GoogleDriveFile]:
-        query = "name = '{}' and trashed = false".format(file_name)
+    def query_by_filename(self, file_name: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        if only_root_flag:
+            query = "name = '{}' and trashed = false and 'root' in parents".format(file_name)
+        else:
+            query = "name = '{}' and trashed = false".format(file_name)
         file_list = self.__query_worker(query)
         return file_list
 
-    def query_by_email_and_filename(self, email: str, file_name: str) -> List[GoogleDriveFile]:
-        query = "name = '{}' and '{}' in owners and trashed = false".format(file_name, email)
+    def query_by_email_and_filename(self, email: str, file_name: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        if only_root_flag:
+            query = "name = '{}' and '{}' in owners and trashed = false and 'root' in parents".format(file_name, email)
+        else:
+            query = "name = '{}' and '{}' in owners and trashed = false".format(file_name, email)
         file_list = self.__query_worker(query)
         return file_list
 
-    def query_by_email(self, email: str) -> List[GoogleDriveFile]:
-        query = "'{}' in owners and trashed = false".format(email)
+    def query_by_email(self, email: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        if only_root_flag:
+            query = "'{}' in owners and trashed = false and 'root' in parents".format(email)
+        else:
+            query = "'{}' in owners and trashed = false".format(email)
         file_list = self.__query_worker(query)
         return file_list
 
@@ -182,7 +191,7 @@ class DriveIO(object):
 
         for retry_count in range(self.max_retry_count):
             try:
-                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name)
+                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name, only_root_flag=True)
 
                 existing_file_id = None
                 if len(existing_files_list) > 0:
