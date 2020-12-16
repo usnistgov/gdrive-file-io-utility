@@ -30,4 +30,17 @@ if __name__ == "__main__":
     token = args.token_pickle_filepath
     filepath = args.filepath
 
-    upload(token, filepath)
+    try_nb = 0
+    max_nb_tries = 2
+    done = False
+    while not done and try_nb < max_nb_tries:
+        try:
+            try_nb = try_nb + 1
+            upload(token, filepath)
+            done = True
+        except:
+            print('failed, retrying')
+            pass
+
+
+

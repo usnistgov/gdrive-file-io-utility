@@ -87,6 +87,10 @@ class DriveIO(object):
             logging.error('Failed to connect to Drive.')
             raise
 
+    def query_worker(self, query: str) -> List[GoogleDriveFile]:
+        # make query_worker available outside the class
+        return self.__query_worker(query)
+
     def __query_worker(self, query: str) -> List[GoogleDriveFile]:
         # https://developers.google.com/drive/api/v3/search-files
         # https://developers.google.com/drive/api/v3/reference/query-ref
@@ -102,7 +106,7 @@ class DriveIO(object):
                         # name, id, modifiedTime, sharingUser
                         response = self.service.files().list(q=query,
                                                              pageSize=self.page_size,
-                                                             fields="nextPageToken, files(name, id, modifiedTime, owners)",
+                                                             fields="nextPageToken, files(name, id, modifiedTime, owners, parents)",
                                                              pageToken=page_token,
                                                              spaces='drive').execute(num_retries=self.max_retry_count)
                         items.extend(response.get('files'))
@@ -124,7 +128,7 @@ class DriveIO(object):
             file_list = list()
             for item in items:
                 owner = item['owners'][0]  # user first owner by default
-                g_file = GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'])
+                g_file = GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'], item['parents'])
                 file_list.append(g_file)
         except:
             logging.error('Failed to connect to and list files from Drive.')

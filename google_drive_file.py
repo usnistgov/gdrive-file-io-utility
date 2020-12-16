@@ -9,14 +9,15 @@ import datetime
 
 
 class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str):
+    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str, parents: str):
         self.email = email
         self.name = file_name
         self.id = file_id
         self.modified_epoch = GoogleDriveFile.__convert_to_epoch(modified_timestamp)
+        self.parents = parents
 
     def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}" '.format(self.id, self.name, self.modified_epoch, self.email)
+        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}", parents: "{}"'.format(self.id, self.name, self.modified_epoch, self.email, self.parents)
         return msg
 
     @staticmethod
