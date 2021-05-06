@@ -186,7 +186,7 @@ class DriveIO(object):
                 logging.error('Failed to download file "{}" from Drive.'.format(g_file.name))
                 raise
 
-    def upload(self, file_path: str) -> str:
+    def upload(self, file_path: str, only_root_flag=True) -> str:
         _, file_name = os.path.split(file_path)
         logging.info('Uploading file: "{}" to Drive'.format(file_name))
         m_type = mimetypes.guess_type(file_name)[0]
@@ -195,7 +195,7 @@ class DriveIO(object):
 
         for retry_count in range(self.max_retry_count):
             try:
-                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name, only_root_flag=True)
+                existing_files_list = self.query_by_email_and_filename(self.email_address, file_name, only_root_flag=only_root_flag)
 
                 existing_file_id = None
                 if len(existing_files_list) > 0:
