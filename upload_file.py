@@ -12,7 +12,7 @@ def upload(token, filepath):
     if os.path.exists(filepath) and os.path.exists(token):
         logger.info("Starting upload")
         g_drive = DriveIO(token)
-        g_drive.upload(filepath, only_root_flag=False)
+        g_drive.upload(filepath, only_root_flag=True)
     else:
         logger.info(filepath + " or " + token + " do not exist")
 

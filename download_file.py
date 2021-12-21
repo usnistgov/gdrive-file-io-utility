@@ -45,7 +45,7 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument('--folder', type=str,
                         help='The folder to download from on drive',
-                        required=True)
+                        default="My Drive")
     parser.add_argument('--output_dirpath', type=str,
                         help='The folder to download into on your local machine',
                         required=True)
