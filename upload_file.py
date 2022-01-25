@@ -8,13 +8,16 @@ from drive_io import DriveIO
 
 
 def upload(token, filepath):
+    if not os.path.exists(token):
+        logger.info(token + " do not exist")
+        return
+    if not os.path.exists(filepath):
+        logger.info(filepath + " do not exist")
+        return
 
-    if os.path.exists(filepath) and os.path.exists(token):
-        logger.info("Starting upload")
-        g_drive = DriveIO(token)
-        g_drive.upload(filepath, only_root_flag=True)
-    else:
-        logger.info(filepath + " or " + token + " do not exist")
+    logger.info("Starting upload")
+    g_drive = DriveIO(token)
+    g_drive.upload(filepath, only_root_flag=True)
 
 
 if __name__ == "__main__":

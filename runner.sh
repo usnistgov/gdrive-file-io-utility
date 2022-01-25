@@ -9,16 +9,16 @@ conda activate drive
 # python upload_file.py --filepath=${file}
 
 
-ifp='/scratch/trojai/data/round9/round9-train-dataset.tar.gz'
-python upload_file.py --filepath=${ifp}
+# ifp='/scratch/trojai/data/round9/round9-train-dataset-packaged.tar.gz'
+# python upload_file.py --filepath=${ifp}
 
 
-# input_dirpath='/scratch/trojai/data/round9/models'
+input_dirpath='/scratch/trojai/data/round9/round9-train-dataset-packaged/models'
 
-# for i in $(seq 0 35)
-# do
-# 	printf -v filename "id-%07dx.tar.gz" ${i}
-# 	echo $filename
-# 	ifp=$input_dirpath/$filename
-# 	python upload_file.py --filepath=${ifp}
-# done
+for i in $(seq 0 20)
+do
+	printf -v filename "id-%07dx.tar.gz" ${i}
+	echo $filename
+	ifp=$input_dirpath/$filename
+	python upload_file.py --filepath=${ifp}
+done
