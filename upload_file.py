@@ -1,16 +1,23 @@
 import os
+import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 from drive_io import DriveIO
 
 
 def upload(token, filepath):
+    if not os.path.exists(token):
+        logger.info(token + " do not exist")
+        return
+    if not os.path.exists(filepath):
+        logger.info(filepath + " do not exist")
+        return
 
-    if os.path.exists(filepath) and os.path.exists(token):
-        print("Starting upload")
-        g_drive = DriveIO(token)
-        g_drive.upload(filepath)
-    else:
-        print(filepath + " or " + token + " do not exist")
+    logger.info("Starting upload")
+    g_drive = DriveIO(token)
+    g_drive.upload(filepath, only_root_flag=True)
 
 
 if __name__ == "__main__":
@@ -27,6 +34,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # setup logger
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
+                        stream=sys.stdout)
+
+
     token = args.token_pickle_filepath
     filepath = args.filepath
 
@@ -39,7 +52,7 @@ if __name__ == "__main__":
             upload(token, filepath)
             done = True
         except:
-            print('failed, retrying')
+            logger.info('failed, retrying')
             pass
 
 
