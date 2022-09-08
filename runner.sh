@@ -4,40 +4,28 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate drive
 
 
-folder='round3-test-dataset'
-output_dirpath='/scratch/trojai/data/round3/round3-test-dataset-packaged'
-#output_dirpath='/mnt/scratch/trojai/data/round3/round3-test-dataset-packaged'
+folder='round9-holdout-dataset'
+output_dirpath='/scratch/trojai/data/round9/round9-holdout-dataset/models/'
 
-declare -a filenames=('id-000000xx.tar.gz' 'id-000001xx.tar.gz' 'id-000002xx.tar.gz')
+# declare -a filenames=('id-0000000x.tar.gz' 'id-0000001x.tar.gz')
+# for filename in ${filenames[@]}; do
 
-for filename in ${filenames[@]}; do
-   echo $filename
-   python download_file.py --filename=${filename} --folder=${folder} --output_dirpath=${output_dirpath}
+for i in $(seq 0 41); do
+	printf -v filename "id-%07dx.tar.gz" ${i}
+  echo $filename
+  ifp=$input_dirpath/$filename
+  python download_file.py --filename=${filename} --folder=${folder} --output_dirpath=${output_dirpath}
 done
 
 
 
 
+#input_dirpath='/mnt/scratch/trojai/data/round4/round4-leftovers-dataset-packaged'
+#
+#for i in $(seq 0 18); do
+#	printf -v filename "id-%06dxx.tar.gz" ${i}
+#  echo $filename
+#  ifp=$input_dirpath/$filename
+#  python upload_file.py --filepath=${ifp}
+#done
 
-folder='round3-holdout-dataset'
-output_dirpath='/scratch/trojai/data/round3/round3-holdout-dataset-packaged'
-
-declare -a filenames=('id-000000xx.tar.gz' 'id-000001xx.tar.gz' 'id-000002xx.tar.gz')
-
-for filename in ${filenames[@]}; do
-   echo $filename
-   python download_file.py --filename=${filename} --folder=${folder} --output_dirpath=${output_dirpath}
-done
-
-
-
-
-folder='round4-train-dataset'
-output_dirpath='/scratch/trojai/data/round4/round4-train-dataset-packaged'
-
-declare -a filenames=('id-000000xx.tar.gz' 'id-000001xx.tar.gz' 'id-000002xx.tar.gz' 'id-000003xx.tar.gz' 'id-000004xx.tar.gz' 'id-000005xx.tar.gz' 'id-000006xx.tar.gz' 'id-000007xx.tar.gz' 'id-000008xx.tar.gz' 'id-000009xx.tar.gz' 'id-000010xx.tar.gz')
-
-for filename in ${filenames[@]}; do
-   echo $filename
-   python download_file.py --filename=${filename} --folder=${folder} --output_dirpath=${output_dirpath}
-done

@@ -1,8 +1,20 @@
 import os
 import traceback
 
+import drive_io
 from drive_io import DriveIO
+from google_drive_file import GoogleDriveFile
 
+
+def get_file_by_id(g_drive: drive_io.DriveIO, id: str) -> GoogleDriveFile:
+    query = "id = '{}' and trashed = false".format(id)
+    file_list = g_drive.query_worker(query)
+    if len(file_list) == 0:
+        return None
+    elif len(file_list) > 1:
+        return None
+    else:
+        return file_list[0]
 
 def download(token, filename, folder, output_filepath):
     if not os.path.exists(output_filepath):
@@ -12,24 +24,42 @@ def download(token, filename, folder, output_filepath):
     g_drive = DriveIO(token)
 
     print('Making query to drive')
-    query = "name = '{}' and trashed = false".format(filename, folder)
+    query = "name = '{}' and trashed = false".format(filename)
     print(query)
     file_list = g_drive.query_worker(query)
 
-    selected_gfile = None
+    selected_file_list = list()
+
     for gfile in file_list:
-        response = g_drive.service.files().get(fileId=gfile.parents[0],
-                                             fields="name").execute()
+        file_stack = list()
+        file_stack.insert(0, gfile.name)
 
-        if response['name'] == folder:
-            selected_gfile = gfile
-            break
+        fid = gfile.parents[0]
+        while True:
+            response = g_drive.service.files().get(fileId=fid, fields="name, parents, id").execute()
+            if 'name' not in response:
+                # print("Found file with matching name, with the incorrect parent folder at path: {}".format(file_stack))
+                break
+            file_stack.insert(0, response['name'])
+            if response['name'] == folder:
+                selected_file_list.append(gfile)
+                file_stack.insert(0, "...")
+                print("Found file with matching name, with the following path: {}".format(file_stack))
+                break
+            if 'parents' not in response:
+                # print("Found file with matching name, with the incorrect parent folder at path: {}".format(file_stack))
+                break
+            fid = response['parents'][0]
 
-    if selected_gfile is not None:
+
+    if len(selected_file_list) > 1:
+        print('Found {} files matching the query parameters. Terminating since we cannot disambiguate.'.format(len(selected_file_list)))
+    elif len(selected_file_list) == 0:
+        print('Failed to find file {} in folder {}. Terminating'.format(filename, folder))
+    else:
+        selected_gfile = selected_file_list[0]
         print('Found file {} in folder {}. Downloading'.format(filename, folder))
         g_drive.download(selected_gfile, output_filepath)
-    else:
-        print('Failed to find file {} in folder {}. Terminating'.format(filename, folder))
 
 
 if __name__ == "__main__":
