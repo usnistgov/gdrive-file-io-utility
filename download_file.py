@@ -60,6 +60,7 @@ def download(token, filename, folder, output_filepath):
         selected_gfile = selected_file_list[0]
         print('Found file {} in folder {}. Downloading'.format(filename, folder))
         g_drive.download(selected_gfile, output_filepath)
+        print('Download complete')
 
 
 if __name__ == "__main__":
