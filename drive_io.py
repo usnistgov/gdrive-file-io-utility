@@ -106,7 +106,7 @@ class DriveIO(object):
                         # name, id, modifiedTime, sharingUser
                         response = self.service.files().list(q=query,
                                                              pageSize=self.page_size,
-                                                             fields="nextPageToken, files(name, id, modifiedTime, owners, parents)",
+                                                             fields="nextPageToken, files(name, id, modifiedTime, owners, parents, mimeType)",
                                                              pageToken=page_token,
                                                              spaces='drive').execute(num_retries=self.max_retry_count)
                         items.extend(response.get('files'))
@@ -128,7 +128,7 @@ class DriveIO(object):
             file_list = list()
             for item in items:
                 owner = item['owners'][0]  # user first owner by default
-                g_file = GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'], item['parents'])
+                g_file = GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'], item['parents'], item['mimeType'])
                 file_list.append(g_file)
         except:
             logging.error('Failed to connect to and list files from Drive.')

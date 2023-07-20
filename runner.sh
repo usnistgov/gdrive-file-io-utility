@@ -1,31 +1,60 @@
 #!/bin/bash
 
-source ~/anaconda3/etc/profile.d/conda.sh
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate drive
 
 
-folder='round9-holdout-dataset'
-output_dirpath='/scratch/trojai/data/round9/round9-holdout-dataset/models/'
+output_dirpath='/scratch/tmp/'
 
-# declare -a filenames=('id-0000000x.tar.gz' 'id-0000001x.tar.gz')
-# for filename in ${filenames[@]}; do
+folder='nlp-question-answering-sep2021-holdout'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
 
-for i in $(seq 0 41); do
-	printf -v filename "id-%07dx.tar.gz" ${i}
-  echo $filename
-  ifp=$input_dirpath/$filename
-  python download_file.py --filename=${filename} --folder=${folder} --output_dirpath=${output_dirpath}
-done
+folder='nlp-question-answering-sep2021-test'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-question-answering-sep2021-train'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
 
 
 
+folder='nlp-sentiment-classification-apr2021-holdout'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
 
-#input_dirpath='/mnt/scratch/trojai/data/round4/round4-leftovers-dataset-packaged'
+folder='nlp-sentiment-classification-apr2021-test'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-sentiment-classification-apr2021-train'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+
+
+folder='nlp-sentiment-classification-mar2021-holdout'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-sentiment-classification-mar2021-test'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-sentiment-classification-mar2021-train'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+
+
+folder='nlp-summary-jan2022-holdout'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-summary-jan2022-test'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+folder='nlp-summary-jan2022-train'
+python download_folder.py --folder=${folder} --output_dirpath=${output_dirpath}
+
+
+#input_dirpath='~/round1-train-dataset/models-packaged'
 #
-#for i in $(seq 0 18); do
-#	printf -v filename "id-%06dxx.tar.gz" ${i}
-#  echo $filename
-#  ifp=$input_dirpath/$filename
-#  python upload_file.py --filepath=${ifp}
+#for i in $(seq 0 100); do
+#	printf -v filename "id-%07dx.tar.gz" ${i}
+# echo $filename
+# ifp=$input_dirpath/$filename
+# python upload_file.py --filepath=${ifp}
 #done
 
