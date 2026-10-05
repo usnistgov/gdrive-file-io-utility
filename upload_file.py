@@ -25,9 +25,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Upload a folder to the trojai google drive.')
 
-    parser.add_argument('--token-pickle-filepath', type=str,
-                        help='Path token.pickle file holding the oauth keys.',
-                        default='token.pickle')
+    parser.add_argument('--token-filepath', '--token-pickle-filepath', dest='token_filepath', type=str,
+                        help='Path token.json file holding the oauth keys.',
+                        default='token.json')
     parser.add_argument('--filepath', type=str,
                         help='The file or directory to upload',
                         required=True)
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                         stream=sys.stdout)
 
 
-    token = args.token_pickle_filepath
+    token = args.token_filepath
     filepath = args.filepath
 
     try_nb = 0

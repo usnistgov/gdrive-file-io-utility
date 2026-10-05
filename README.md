@@ -55,9 +55,9 @@ pip install --upgrade requirements.txt
 ```
 	python3 create_auth_token.py \
 	--credentials-filepath credentials.json \
-	--token-pickle-filepath token.pickle
+	--token-filepath token.json
 ```
 
 -------------------------------------------------------------------------------
 
-With your 'token.pickle' you can now use drive_io.py to connect to the linked Google Drive account; list, download, and upload files. 
+With your 'token.json' you can now use drive_io.py to connect to the linked Google Drive account; list, download, and upload files. 

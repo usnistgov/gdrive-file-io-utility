@@ -5,6 +5,10 @@ __pychache__
 # security credentials for Drive access
 credentials.json
 token.pickle
+token.json
 
 # ide
 .idea
+
+# macOS
+.DS_Store

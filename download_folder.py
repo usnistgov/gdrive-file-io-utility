@@ -27,8 +27,8 @@ def download_all_children_of_folder(g_drive: drive_io.DriveIO, folder_name: str,
         for folder_dict in folder_list:
             folder = folder_dict['gdrivefile']
             parent_ofp = folder_dict['parent_ofp']
-            cur_ofp = os.path.join(parent_ofp, folder.name)
-            query = "'trojai@nist.gov' in owners and trashed = false and '{}' in parents".format(folder.id)
+            cur_ofp = drive_io.safe_local_path(parent_ofp, folder.name)
+            query = "'trojai@nist.gov' in owners and trashed = false and '{}' in parents".format(drive_io.escape_query_value(folder.id))
             files = g_drive.query_worker(query)
             for file in files:
                 if file.mime_type == 'application/vnd.google-apps.folder':
@@ -60,9 +60,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Downloads a folders contents from the trojai google drive.')
 
-    parser.add_argument('--token-pickle-filepath', type=str,
-                        help='Path token.pickle file holding the oauth keys.',
-                        default='token.pickle')
+    parser.add_argument('--token-filepath', '--token-pickle-filepath', dest='token_filepath', type=str,
+                        help='Path token.json file holding the oauth keys.',
+                        default='token.json')
     parser.add_argument('--folder', type=str,
                         help='The folder to download from on drive',
                         default="My Drive")
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    token = args.token_pickle_filepath
+    token = args.token_filepath
     folder = args.folder
     output_dirpath = args.output_dirpath
     print('Args: ')

@@ -4,20 +4,25 @@
 
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
+import os
 import fcntl
 import json
-import jsonpickle
 import logging
+
+
+def _open_lock_file(filepath):
+    # per-file lock next to the target, created owner-only, never truncated, and never followed if it is a symlink
+    fd = os.open(filepath + '.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    return os.fdopen(fd, 'r+')
 
 
 def write(filepath, obj):
     assert filepath.endswith('.json')
-    lock_file = '/var/lock/trojai-json_io-lockfile'
-    with open(lock_file, 'w') as lfh:
+    with _open_lock_file(filepath) as lfh:
         try:
             fcntl.lockf(lfh, fcntl.LOCK_EX)
             with open(filepath, mode='w', encoding='utf-8') as f:
-                f.write(jsonpickle.encode(obj, warn=True))
+                json.dump(obj, f, indent=2)
         except:
             msg = 'json_io failed writing file "{}" releasing file lock regardless.'.format(filepath)
             logging.error(msg)
@@ -28,12 +33,11 @@ def write(filepath, obj):
 
 def read(filepath):
     assert filepath.endswith('.json')
-    lock_file = '/var/lock/trojai-json_io-lockfile'
-    with open(lock_file, 'w') as lfh:
+    with _open_lock_file(filepath) as lfh:
         try:
             fcntl.lockf(lfh, fcntl.LOCK_EX)
             with open(filepath, mode='r', encoding='utf-8') as f:
-                obj = jsonpickle.decode(f.read())
+                obj = json.load(f)
         except json.decoder.JSONDecodeError:
             logging.error("JSON decode error for file: {}, is it a proper json?".format(filepath))
             raise

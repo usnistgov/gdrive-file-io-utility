@@ -6,7 +6,7 @@
 
 import os
 import io
-import pickle
+import hashlib
 import random
 import mimetypes
 import time
@@ -20,6 +20,7 @@ from google_drive_file import GoogleDriveFile
 
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
@@ -31,28 +32,67 @@ logging.getLogger('google.auth.transport.requests').setLevel(logging.WARNING)
 logging.getLogger('googleapiclient.http').setLevel(logging.WARNING)
 logging.getLogger('googleapiclient.errors').setLevel(logging.WARNING)
 
+FILE_FIELDS = "name, id, modifiedTime, owners, parents, mimeType, md5Checksum"
+
+
+def escape_query_value(value: str) -> str:
+    """
+    Escape a value for use inside a single quoted string literal in a Drive search query.
+    https://developers.google.com/drive/api/guides/search-files#query_string_examples
+    """
+    return str(value).replace('\\', '\\\\').replace("'", "\\'")
+
+
+def safe_local_path(output_dirpath: str, name: str) -> str:
+    """
+    Join a Drive file/folder name onto a local directory, rejecting any name which could resolve outside that directory.
+    """
+    if name is None or name in ('', '.', '..') or '/' in name or '\\' in name or '\0' in name or os.path.basename(name) != name:
+        raise ValueError('Refusing to use unsafe Drive file name "{}" as a local path.'.format(name))
+    base = os.path.realpath(output_dirpath)
+    dest = os.path.join(base, name)
+    if os.path.commonpath([base, os.path.realpath(dest)]) != base:
+        raise ValueError('Drive file name "{}" resolves outside of "{}".'.format(name, output_dirpath))
+    return dest
+
+
+def write_private_file(filepath: str, contents: str) -> None:
+    """
+    Write contents to filepath with owner only (0600) permissions, refusing to follow a symlink.
+    """
+    fd = os.open(filepath, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, 'w') as fh:
+        fh.write(contents)
+
+
+def md5_of_file(filepath: str) -> str:
+    md5 = hashlib.md5()
+    with open(filepath, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b''):
+            md5.update(chunk)
+    return md5.hexdigest()
+
 
 class DriveIO(object):
-    # If modifying these scopes, delete the file token.pickle.
+    # If modifying these scopes, delete the file token.json.
     SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    def __init__(self, token_pickle_filepath):
-        self.token_pickle_filepath = token_pickle_filepath
+    def __init__(self, token_filepath):
+        self.token_filepath = token_filepath
         self.page_size = 100
         self.max_retry_count = 4
-        self.__get_service(self.token_pickle_filepath)
+        self.__get_service(self.token_filepath)
 
-    def __get_service(self, token_pickle_filepath):
+    def __get_service(self, token_filepath):
         logging.debug('Starting connection to Google Drive.')
         creds = None
         try:
-            # The file token.pickle stores the user's access and refresh tokens, and is
-            # created automatically when the authorization flow completes for the first
-            # time.
-            if os.path.exists(token_pickle_filepath):
-                logging.debug('Found token file: {}'.format(token_pickle_filepath))
-                with open(token_pickle_filepath, 'rb') as token:
-                    creds = pickle.load(token)
+            # The token file stores the user's access and refresh tokens as json, and is
+            # created by create_auth_token.py when the authorization flow completes.
+            if os.path.exists(token_filepath):
+                logging.debug('Found token file: {}'.format(token_filepath))
+                creds = Credentials.from_authorized_user_file(token_filepath, DriveIO.SCOPES)
             logging.debug('Token credentials loaded')
             # If there are no (valid) credentials available, let the user log in.
             if not creds:
@@ -66,9 +106,8 @@ class DriveIO(object):
                     creds.refresh(Request())
                     logging.debug('Credentials refreshed successfully.')
                     # Save the credentials for the next run
-                    with open(token_pickle_filepath, 'wb') as token:
-                        pickle.dump(creds, token)
-                    logging.debug('Credentials refreshed and saved to "{}".'.format(token_pickle_filepath))
+                    write_private_file(token_filepath, creds.to_json())
+                    logging.debug('Credentials refreshed and saved to "{}".'.format(token_filepath))
                 else:
                     logging.error('Could not refresh credentials. Rebuild token using create_auth_token.py.')
                     raise RuntimeError('Could not refresh credentials. Rebuild token using create_auth_token.py.')
@@ -106,7 +145,7 @@ class DriveIO(object):
                         # name, id, modifiedTime, sharingUser
                         response = self.service.files().list(q=query,
                                                              pageSize=self.page_size,
-                                                             fields="nextPageToken, files(name, id, modifiedTime, owners, parents, mimeType)",
+                                                             fields="nextPageToken, files({})".format(FILE_FIELDS),
                                                              pageToken=page_token,
                                                              spaces='drive').execute(num_retries=self.max_retry_count)
                         items.extend(response.get('files'))
@@ -127,16 +166,24 @@ class DriveIO(object):
             logging.debug('Downloaded list of {} files from Drive account.'.format(len(items)))
             file_list = list()
             for item in items:
-                owner = item['owners'][0]  # user first owner by default
-                g_file = GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'], item['parents'], item['mimeType'])
-                file_list.append(g_file)
+                file_list.append(DriveIO.__to_drive_file(item))
         except:
             logging.error('Failed to connect to and list files from Drive.')
             raise
 
         return file_list
 
+    @staticmethod
+    def __to_drive_file(item: dict) -> GoogleDriveFile:
+        owner = item['owners'][0]  # user first owner by default
+        return GoogleDriveFile(owner['emailAddress'], item['name'], item['id'], item['modifiedTime'], item.get('parents', []), item['mimeType'], item.get('md5Checksum'))
+
+    def get_by_id(self, file_id: str) -> GoogleDriveFile:
+        item = self.service.files().get(fileId=file_id, fields=FILE_FIELDS).execute(num_retries=self.max_retry_count)
+        return DriveIO.__to_drive_file(item)
+
     def query_by_filename(self, file_name: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        file_name = escape_query_value(file_name)
         if only_root_flag:
             query = "name = '{}' and trashed = false and 'root' in parents".format(file_name)
         else:
@@ -145,6 +192,8 @@ class DriveIO(object):
         return file_list
 
     def query_by_email_and_filename(self, email: str, file_name: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        email = escape_query_value(email)
+        file_name = escape_query_value(file_name)
         if only_root_flag:
             query = "name = '{}' and '{}' in owners and trashed = false and 'root' in parents".format(file_name, email)
         else:
@@ -153,6 +202,7 @@ class DriveIO(object):
         return file_list
 
     def query_by_email(self, email: str, only_root_flag: bool = False) -> List[GoogleDriveFile]:
+        email = escape_query_value(email)
         if only_root_flag:
             query = "'{}' in owners and trashed = false and 'root' in parents".format(email)
         else:
@@ -160,19 +210,20 @@ class DriveIO(object):
         file_list = self.__query_worker(query)
         return file_list
 
-    def download(self, g_file: GoogleDriveFile, output_dirpath: str) -> None:
+    def download(self, g_file: GoogleDriveFile, output_dirpath: str) -> str:
         retry_count = 0
         logging.info('Downloading file: "{}" from Drive'.format(g_file))
+        local_filepath = safe_local_path(output_dirpath, g_file.name)
         while True:
             try:
                 request = self.service.files().get_media(fileId=g_file.id)
-                file_data = io.FileIO(os.path.join(output_dirpath, g_file.name), 'wb')
-                downloader = MediaIoBaseDownload(file_data, request)
-                done = False
-                while not done:
-                    status, done = downloader.next_chunk(num_retries=self.max_retry_count)
-                    logging.debug("  downloaded {:d}%".format(int(status.progress() * 100)))
-                return  # download completed successfully
+                with io.FileIO(local_filepath, 'wb') as file_data:
+                    downloader = MediaIoBaseDownload(file_data, request)
+                    done = False
+                    while not done:
+                        status, done = downloader.next_chunk(num_retries=self.max_retry_count)
+                        logging.debug("  downloaded {:d}%".format(int(status.progress() * 100)))
+                return local_filepath  # download completed successfully
             except HttpError as e:
                 retry_count = retry_count + 1
                 if e.resp.status in [104, 404, 408, 410] and retry_count <= self.max_retry_count:
@@ -222,7 +273,7 @@ class DriveIO(object):
                 return file.get('id')  # upload completed successfully
 
             except HttpError as e:
-                if e.resp.status in [104, 404, 408, 410] and retry_count <= self.max_retry_count:
+                if e.resp.status in [104, 404, 408, 410] and retry_count < self.max_retry_count - 1:
                     # Start the upload from the beginning.
                     logging.info('Upload Error, restarting upload from beginning (attempt {}/{}) with exponential backoff.'.format(retry_count, self.max_retry_count))
                     sleep_time = random.random() * 2 ** retry_count
@@ -238,15 +289,14 @@ class DriveIO(object):
             # update the permissions to share the log file with the team, using short exponential backoff scheme
             user_permissions = {'type': 'user', 'role': 'reader', 'emailAddress': share_email}
             for retry_count in range(self.max_retry_count):
-                sleep_time = random.random() * 2 ** retry_count
-                time.sleep(sleep_time)
                 try:
                     self.service.permissions().create(fileId=file_id, body=user_permissions, fields='id', sendNotificationEmail=False).execute()
                     logging.info('Successfully shared file {} with {}.'.format(file_id, share_email))
                     return  # permissions were successfully modified if no exception
-                except:
-                    if retry_count <= 4:
+                except Exception:
+                    if retry_count < self.max_retry_count - 1:
                         logging.info('Failed to modify permissions on try, performing random exponential backoff.')
+                        time.sleep(random.random() * 2 ** retry_count)
                     else:
                         logging.error("Failed to share uploaded file '{}' with '{}'.".format(file_id, share_email))
                         raise
@@ -258,22 +308,30 @@ class DriveIO(object):
         for permission in permissions:
             if permission['role'] != 'owner':
                 for retry_count in range(self.max_retry_count):
-                    sleep_time = random.random() * 2 ** retry_count
-                    time.sleep(sleep_time)
-
                     try:
                         self.service.permissions().delete(fileId=file_id, permissionId=permission['id']).execute()
                         logging.info("Successfully removed share permission '{}' from file {}.".format(permission, file_id))
                         break  # break retry loop
-                    except:
-                        if retry_count <= 4:
+                    except Exception:
+                        if retry_count < self.max_retry_count - 1:
                             logging.info('Failed to modify permissions on try, performing random exponential backoff.')
+                            time.sleep(random.random() * 2 ** retry_count)
                         else:
                             logging.error("Failed to remove share permission '{}' from file '{}'.".format(permission, file_id))
                             raise
 
+        # confirm that only the owner retains access before the file is re-shared
+        remaining = self.service.permissions().list(fileId=file_id).execute()['permissions']
+        remaining = [p for p in remaining if p['role'] != 'owner']
+        if len(remaining) > 0:
+            msg = "Failed to remove share permissions {} from file '{}'.".format(remaining, file_id)
+            logging.error(msg)
+            raise RuntimeError(msg)
+
     def upload_and_share(self, file_path: str, share_email: str) -> None:
         file_id = self.upload(file_path)
+        if file_id is None:
+            raise RuntimeError("Upload of '{}' did not return a file id.".format(file_path))
         # unshare to remove all permissions except for owner, to ensure that if the file is deleted on the receivers end, that they get a new copy of it.
         self.remove_all_sharing_permissions(file_id)
         self.share(file_id, share_email)
@@ -300,9 +358,24 @@ class DriveIO(object):
             raise IOError(msg)
 
         submission = gdrive_file_list[0]
-        submission.save_json(metadata_filepath)
+        if submission.md5_checksum is None:
+            msg = 'Submission "{}" from email {} has no md5Checksum; only binary (non Google Docs) files can be verified.'.format(submission.name, email)
+            logging.error(msg)
+            raise IOError(msg)
+
         logging.info('Downloading "{}" from Actor "{}" last modified time "{}".'.format(submission.name, submission.email, submission.modified_epoch))
-        self.download(submission, output_dirpath)
+        local_filepath = self.download(submission, output_dirpath)
+
+        # verify the downloaded bytes are the ones described by the metadata, and that the file was not modified during the download
+        current = self.get_by_id(submission.id)
+        local_md5 = md5_of_file(local_filepath)
+        if local_md5 != submission.md5_checksum or current.md5_checksum != submission.md5_checksum or current.modified_epoch != submission.modified_epoch:
+            os.remove(local_filepath)
+            msg = 'Submission "{}" from email {} was modified while being downloaded.'.format(submission.name, email)
+            logging.error(msg)
+            raise IOError(msg)
+
+        submission.save_json(metadata_filepath)
         return submission
 
 

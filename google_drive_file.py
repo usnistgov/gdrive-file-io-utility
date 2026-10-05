@@ -9,17 +9,31 @@ import datetime
 
 
 class GoogleDriveFile(object):
-    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str, parents: str, mime_type: str):
+    FIELDS = ['email', 'name', 'id', 'modified_epoch', 'parents', 'mime_type', 'md5_checksum']
+
+    def __init__(self, email: str, file_name: str, file_id: str, modified_timestamp: str, parents: str, mime_type: str, md5_checksum: str = None):
         self.email = email
         self.name = file_name
         self.id = file_id
         self.modified_epoch = GoogleDriveFile.__convert_to_epoch(modified_timestamp)
         self.parents = parents
         self.mime_type = mime_type
+        self.md5_checksum = md5_checksum
 
     def __str__(self):
-        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}", parents: "{}", mime_type: "{}"'.format(self.id, self.name, self.modified_epoch, self.email, self.parents, self.mime_type)
+        msg = 'file id: "{}", name: "{}", modified_epoch: "{}", email: "{}", parents: "{}", mime_type: "{}", md5_checksum: "{}"'.format(self.id, self.name, self.modified_epoch, self.email, self.parents, self.mime_type, self.md5_checksum)
         return msg
+
+    def to_dict(self) -> dict:
+        return {k: getattr(self, k) for k in GoogleDriveFile.FIELDS}
+
+    @staticmethod
+    def from_dict(d: dict):
+        # only known plain fields are read, so no arbitrary objects are ever constructed from the json
+        obj = GoogleDriveFile.__new__(GoogleDriveFile)
+        for k in GoogleDriveFile.FIELDS:
+            setattr(obj, k, d.get(k))
+        return obj
 
     @staticmethod
     def __convert_to_epoch(time_str: str) -> int:
@@ -33,8 +47,8 @@ class GoogleDriveFile(object):
         return int(time.timestamp())
 
     def save_json(self, file_path: str):
-        json_io.write(file_path, self)
+        json_io.write(file_path, self.to_dict())
 
     @staticmethod
     def load_json(file_path: str):
-        return json_io.read(file_path)
+        return GoogleDriveFile.from_dict(json_io.read(file_path))

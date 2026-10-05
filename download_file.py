@@ -7,7 +7,7 @@ from google_drive_file import GoogleDriveFile
 
 
 def get_file_by_id(g_drive: drive_io.DriveIO, id: str) -> GoogleDriveFile:
-    query = "id = '{}' and trashed = false".format(id)
+    query = "id = '{}' and '{}' in owners and trashed = false".format(drive_io.escape_query_value(id), drive_io.escape_query_value(g_drive.email_address))
     file_list = g_drive.query_worker(query)
     if len(file_list) == 0:
         return None
@@ -25,7 +25,8 @@ def download(token, filename, folder, output_filepath):
     g_drive = DriveIO(token)
 
     print('Making query to drive')
-    query = "name = '{}' and trashed = false".format(filename)
+    # only consider files owned by the authenticated account, so files shared in by others cannot be substituted
+    query = "name = '{}' and '{}' in owners and trashed = false".format(drive_io.escape_query_value(filename), drive_io.escape_query_value(g_drive.email_address))
     print(query)
     file_list = g_drive.query_worker(query)
 
@@ -37,8 +38,11 @@ def download(token, filename, folder, output_filepath):
 
         fid = gfile.parents[0]
         while True:
-            response = g_drive.service.files().get(fileId=fid, fields="name, parents, id").execute()
+            response = g_drive.service.files().get(fileId=fid, fields="name, parents, id, owners").execute()
             if 'name' not in response:
+                break
+            if 'owners' in response and g_drive.email_address not in [o.get('emailAddress') for o in response['owners']]:
+                # ancestor folder is owned by someone else, do not trust its name
                 # print("Found file with matching name, with the incorrect parent folder at path: {}".format(file_stack))
                 break
             file_stack.insert(0, response['name'])
@@ -69,9 +73,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Upload a folder to the trojai google drive.')
 
-    parser.add_argument('--token-pickle-filepath', type=str,
-                        help='Path token.pickle file holding the oauth keys.',
-                        default='token.pickle')
+    parser.add_argument('--token-filepath', '--token-pickle-filepath', dest='token_filepath', type=str,
+                        help='Path token.json file holding the oauth keys.',
+                        default='token.json')
     parser.add_argument('--filename', type=str,
                         help='The filename to download from drive',
                         required=True)
@@ -84,7 +88,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    token = args.token_pickle_filepath
+    token = args.token_filepath
     filename = args.filename
     folder = args.folder
     output_dirpath = args.output_dirpath

@@ -5,35 +5,32 @@
 # You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 
 
-import pickle
-
 from google_auth_oauthlib.flow import InstalledAppFlow
-from drive_io import DriveIO
+from drive_io import DriveIO, write_private_file
 
 
-def create_auth_token(credentials_filepath, token_pickle_filepath):
+def create_auth_token(credentials_filepath, token_filepath):
     flow = InstalledAppFlow.from_client_secrets_file(credentials_filepath, DriveIO.SCOPES)
     creds = flow.run_local_server(port=0)
-    # Save the credentials for the next run
-    with open(token_pickle_filepath, 'wb') as token:
-        pickle.dump(creds, token)
+    # Save the credentials for the next run as owner-only json
+    write_private_file(token_filepath, creds.to_json())
     return creds
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Build token.pickle file for authenticating Google Drive API access.')
+    parser = argparse.ArgumentParser(description='Build token.json file for authenticating Google Drive API access.')
 
-    parser.add_argument('--token-pickle-filepath', type=str,
-                        help='Path token.pickle file holding the oauth keys. If token.pickle is missing, but credentials have been provided, token.pickle will be generated after opening a web-browser to have the user accept the app permissions',
-                        default='token.pickle')
+    parser.add_argument('--token-filepath', '--token-pickle-filepath', dest='token_filepath', type=str,
+                        help='Path token.json file holding the oauth keys. token.json will be generated after opening a web-browser to have the user accept the app permissions',
+                        default='token.json')
     parser.add_argument('--credentials-filepath',
                         type=str,
                         help='Path to the credentials.json file holding the Google Cloud Project with API access to trojai@nist.gov Google Drive.',
                         default='credentials.json')
 
     args = parser.parse_args()
-    token = args.token_pickle_filepath
+    token = args.token_filepath
     credentials = args.credentials_filepath
     create_auth_token(credentials, token)
